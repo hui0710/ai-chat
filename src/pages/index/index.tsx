@@ -540,18 +540,17 @@ const IndexPage = () => {
             borderRadius: '24px',
             borderWidth: '1px',
             borderColor: '#E8E8E8',
-            padding: '10px 12px',
+            padding: '8px 12px',
             display: 'flex',
             flexDirection: 'row',
-            gap: '8px',
             alignItems: 'center'
           }}
         >
           {/* 麦克风图标 */}
           <View
             style={{
-              width: '32px',
-              height: '32px',
+              width: '36px',
+              height: '36px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -563,9 +562,10 @@ const IndexPage = () => {
           </View>
 
           {/* 输入框 */}
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minHeight: '36px', display: 'flex', alignItems: 'center' }}>
             <Textarea
               style={{
+                width: '100%',
                 minHeight: '36px',
                 maxHeight: '120px',
                 backgroundColor: 'transparent',
@@ -584,7 +584,7 @@ const IndexPage = () => {
             />
           </View>
 
-          {/* 发送按钮（小icon） */}
+          {/* 发送按钮 */}
           <View
             style={{
               width: '36px',
@@ -594,7 +594,7 @@ const IndexPage = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              marginBottom: '2px'
+              flexShrink: 0
             }}
             onClick={() => inputText.trim() && !isLoading && handleSendMessage()}
           >

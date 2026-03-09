@@ -281,6 +281,15 @@ const IndexPage = () => {
     scrollToBottom();
   }, [messages]);
 
+  // 麦克风点击事件
+  const handleMicClick = () => {
+    Taro.showToast({
+      title: '语音功能即将上线',
+      icon: 'none',
+      duration: 2000
+    });
+  };
+
   return (
     <View className="flex flex-col h-screen" style={{ backgroundColor: '#FEF9F5' }}>
       {/* 顶部导航 */}
@@ -305,17 +314,25 @@ const IndexPage = () => {
       </View>
 
       {/* 消息列表 */}
-      <ScrollView
-        ref={scrollViewRef}
+      <View
         className="flex-1"
-        scrollY
-        scrollWithAnimation
-        onClick={handleTapBlank}
         style={{
+          backgroundColor: '#FEF9F5',
           paddingTop: '60px',
-          paddingBottom: '220px'
+          paddingBottom: '240px',
+          minHeight: '100vh'
         }}
       >
+        <ScrollView
+          ref={scrollViewRef}
+          scrollY
+          scrollWithAnimation
+          onClick={handleTapBlank}
+          style={{
+            height: '100%',
+            backgroundColor: '#FEF9F5'
+          }}
+        >
         <View style={{ padding: '16px' }}>
           {/* 打字机欢迎语 */}
           {messages.length === 0 && welcomeText && (
@@ -466,6 +483,7 @@ const IndexPage = () => {
           )}
         </View>
       </ScrollView>
+      </View>
 
       {/* 输入区域 */}
       <View
@@ -522,15 +540,25 @@ const IndexPage = () => {
             borderRadius: '24px',
             borderWidth: '1px',
             borderColor: '#E8E8E8',
-            padding: '8px 12px',
+            padding: '10px 12px',
             display: 'flex',
             flexDirection: 'row',
             gap: '8px',
-            alignItems: 'flex-end'
+            alignItems: 'center'
           }}
         >
           {/* 麦克风图标 */}
-          <View style={{ display: 'flex', alignItems: 'center', paddingBottom: '4px' }}>
+          <View
+            style={{
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
+            onClick={handleMicClick}
+          >
             <Mic size={20} color="#999999" />
           </View>
 

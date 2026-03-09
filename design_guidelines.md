@@ -2,45 +2,52 @@
 
 ## 品牌定位
 
+**应用名称**: 树洞先生 / 小暖
 **应用定位**: 智能AI陪伴助手，提供温暖、友善的对话体验
-**设计风格**: 简约、温暖、亲和
+**设计风格**: 简约、温暖、治愈、精致
 **目标用户**: 需要情感陪伴、倾诉交流的用户
 
 ## 配色方案
 
 ### 主色板
 
-- **主色调（用户消息）**: `bg-indigo-500` (#6366f1) - 温暖的紫色，代表关爱与陪伴
-- **辅色调（AI消息）**: `bg-gray-100` (#f3f4f6) - 柔和的灰色，突出AI角色
-- **强调色（按钮）**: `bg-indigo-500` (#6366f1) - 与主色统一
+- **主背景色**: `#FEF9F5` - 柔和的暖白色
+- **用户气泡**: `#E6F0DA`（浅豆绿）或 `#F5E6D3`（淡奶茶色）
+- **AI气泡**: `#F0F0F0`（极浅灰）或 `#E3EDF5`（雾霾蓝）
+- **字体主色**: `#3E3A39` - 深灰色
+
+### 强调色
+
+- **强调色（按钮）**: `#FFB6A0`（珊瑚粉）或 `#B8E0D0`（薄荷绿）
+- **渐变色**: 从珊瑚粉 `#FFB6A0` 到淡橘色 `#FFD4B8`
 
 ### 中性色
 
-- **页面背景**: `bg-gray-50` (#f9fafb)
-- **卡片背景**: `bg-white` (#ffffff)
-- **边框线**: `border-gray-200` (#e5e7eb)
+- **边框线**: `#E8E8E8` - 浅灰色
+- **时间戳**: `#999999` - 中灰色
+- **次要文字**: `#666666`
 
 ### 语义色
 
-- **成功**: `text-green-600` (#16a34a)
-- **错误**: `text-red-600` (#dc2626)
-- **警告**: `text-yellow-600` (#ca8a04)
+- **微表情-开心**: ☀️ 太阳黄
+- **微表情-低落**: ☔️ 雨天蓝
+- **微表情-中性**: ☁️ 云朵灰
 
 ## 字体规范
 
 ### 字号层级
 
-- **H1（标题）**: `text-2xl` (24px) - 页面标题
-- **H2（副标题）**: `text-xl` (20px) - 区块标题
+- **页面标题**: `24px` / `font-medium` (500) - "树洞先生"
+- **H1（标题）**: `text-2xl` (24px) - 区块标题
 - **Body（正文）**: `text-base` (16px) - 消息内容
 - **Caption（辅助）**: `text-sm` (14px) - 时间戳、状态提示
 - **Tiny（微小）**: `text-xs` (12px) - 小标签
 
 ### 字重
 
-- **标题**: `font-bold` (700)
-- **强调**: `font-semibold` (600)
+- **页面标题**: `font-medium` (500)
 - **正文**: `font-normal` (400)
+- **强调**: `font-medium` (500)
 
 ## 间距系统
 
@@ -64,23 +71,58 @@
 
 ## 组件规范
 
+### 页面顶部导航
+
+```tsx
+<View className="fixed top-0 left-0 right-0 z-50 bg-[#FEF9F5] px-4 py-3 border-b border-[#E8E8E8]">
+  <Text className="text-[24px] font-medium text-[#3E3A39] text-center">
+    树洞先生
+  </Text>
+</View>
+```
+
 ### 消息气泡组件
 
 **用户消息**:
 ```tsx
 <View className="flex justify-end mb-3">
-  <View className="bg-indigo-500 rounded-2xl rounded-br-sm px-4 py-3 max-w-[75%]">
-    <Text className="text-white text-base">用户消息内容</Text>
+  <View
+    className="px-4 py-3 max-w-[75%] rounded-[18px]"
+    style={{
+      backgroundColor: '#E6F0DA',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
+    }}
+  >
+    <Text className="text-[16px] text-[#3E3A39] block">用户消息内容</Text>
+    <Text className="text-[12px] text-[#999999] block mt-1">12:30</Text>
   </View>
 </View>
 ```
 
 **AI消息**:
 ```tsx
-<View className="flex justify-start mb-3">
-  <View className="bg-gray-100 rounded-2xl rounded-bl-sm px-4 py-3 max-w-[75%]">
-    <Text className="text-gray-800 text-base">AI回复内容</Text>
+<View className="flex justify-start mb-3 gap-2">
+  <View className="self-start">
+    <Text className="text-[32px]">☁️</Text>
   </View>
+  <View
+    className="px-4 py-3 max-w-[75%] rounded-[18px]"
+    style={{
+      backgroundColor: '#F0F0F0',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
+    }}
+  >
+    <Text className="text-[16px] text-[#3E3A39] block">AI回复内容</Text>
+    <Text className="text-[12px] text-[#999999] block mt-1">12:30</Text>
+  </View>
+</View>
+```
+
+### 微表情标识
+
+```tsx
+<View className="absolute top-0 right-0">
+  <Text className="text-[20px]">☀️</Text>
 </View>
 ```
 
@@ -128,30 +170,55 @@
 </View>
 ```
 
-### 按钮样式规范
+### 思考动画组件
 
-**主按钮**:
 ```tsx
-<Button className="bg-indigo-500 text-white rounded-full px-6 py-2.5 text-base font-medium">
-  发送
-</Button>
+<View className="flex items-center gap-1 px-4 py-3">
+  <View
+    className="w-2 h-2 rounded-full"
+    style={{
+      backgroundColor: '#FFB6A0',
+      animation: 'bounce 1s infinite'
+    }}
+  />
+  <View
+    className="w-2 h-2 rounded-full"
+    style={{
+      backgroundColor: '#FFB6A0',
+      animation: 'bounce 1s infinite 0.2s'
+    }}
+  />
+  <View
+    className="w-2 h-2 rounded-full"
+    style={{
+      backgroundColor: '#FFB6A0',
+      animation: 'bounce 1s infinite 0.4s'
+    }}
+  />
+  <Text className="text-[14px] text-[#999999] block ml-2">
+    嗯，我在认真想怎么安慰你...
+  </Text>
+</View>
 ```
 
-**禁用态**:
-```tsx
-<Button className="bg-gray-300 text-gray-500 rounded-full px-6 py-2.5 text-base" disabled>
-  发送
-</Button>
-```
-
-### 加载状态组件
+### 退出关怀弹窗
 
 ```tsx
-<View className="flex justify-center items-center py-4">
-  <View className="flex gap-1">
-    <View className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
-    <View className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
-    <View className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
+<View className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <View
+    className="rounded-[24px] p-6 mx-4"
+    style={{
+      backgroundColor: '#FEF9F5',
+      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
+    }}
+  >
+    <Text className="text-[24px] block mb-3">🌙</Text>
+    <Text className="text-[16px] text-[#3E3A39] block mb-2">
+      记得照顾好自己
+    </Text>
+    <Text className="text-[14px] text-[#999999] block">
+      明天我还在这里等你
+    </Text>
   </View>
 </View>
 ```

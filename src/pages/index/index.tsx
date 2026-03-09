@@ -2,6 +2,7 @@ import { View, Text, ScrollView, Textarea } from '@tarojs/components';
 import { useState, useRef, useEffect } from 'react';
 import Taro from '@tarojs/taro';
 import { Network } from '@/network';
+import { Send, Mic } from 'lucide-react-taro';
 import './index.css';
 
 // 消息类型定义
@@ -13,7 +14,34 @@ interface Message {
   content: string;
   timestamp: number;
   aiMood?: 'happy' | 'sad' | 'neutral';
+  showTimestamp?: boolean;
 }
+
+// 每日治愈文案
+const dailyQuotes = [
+  '今天你愿意和我分享一朵云的心事吗？',
+  '无论今天过得如何，你都值得被温柔以待',
+  '即使只是微小的进步，也值得庆祝',
+  '累了就停下来，我陪你看会儿云',
+  '你的每一份努力，都在悄悄发光'
+];
+
+// 情绪短语
+const emotionPhrases = [
+  { text: '今天有点烦', emoji: '😔', color: '#FFB6A0' },
+  { text: '想被夸夸', emoji: '🥰', color: '#B8E0D0' },
+  { text: '睡不着', emoji: '😴', color: '#E3EDF5' },
+  { text: '好开心', emoji: '😊', color: '#FFE4B5' },
+  { text: '有点累', emoji: '😮‍💨', color: '#D3D3D3' }
+];
+
+// AI思考提示
+const thinkingTips = [
+  '小暖正在想怎么安慰你...',
+  '让我抱抱你...',
+  '我在认真听你说...',
+  '嗯，让我想想...'
+];
 
 const IndexPage = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -21,52 +49,104 @@ const IndexPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [welcomeText, setWelcomeText] = useState('');
   const [showGoodbyeModal, setShowGoodbyeModal] = useState(false);
+  const [showDailyQuote, setShowDailyQuote] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+  const [currentQuote, setCurrentQuote] = useState('');
   const [thinkTip, setThinkTip] = useState('');
   const scrollViewRef = useRef<any>(null);
 
-  // 欢迎语
-  const fullWelcomeText = '嘿，我是小暖。今天你的心情是什么颜色？可以随时和我聊聊，我都在。';
-
-  // 思考提示语
-  const thinkTips = [
-    '嗯，我在认真想怎么安慰你...',
-    '你可以先深呼吸一下',
-    '我在想，也许可以这样...'
-  ];
-
-  // 打字机效果
+  // 初始化：加载缓存、显示每日文案、显示指引
   useEffect(() => {
-    if (messages.length === 0) {
-      let index = 0;
-      const timer = setInterval(() => {
-        if (index < fullWelcomeText.length) {
-          setWelcomeText(fullWelcomeText.slice(0, index + 1));
-          index++;
-        } else {
-          clearInterval(timer);
-          // 打字机完成后添加到消息列表
-          const welcomeMessage: Message = {
-            id: 'welcome',
-            role: 'assistant',
-            content: fullWelcomeText,
-            timestamp: Date.now(),
-            aiMood: 'neutral'
-          };
-          setMessages([welcomeMessage]);
-        }
-      }, 100); // 每100ms显示一个字
+    // 加载缓存的对话
+    loadCachedMessages();
 
-      return () => clearInterval(timer);
+    // 显示每日治愈文案
+    const savedDate = Taro.getStorageSync('quoteDate');
+    const today = new Date().toDateString();
+    if (savedDate !== today) {
+      const randomQuote = dailyQuotes[Math.floor(Math.random() * dailyQuotes.length)];
+      setCurrentQuote(randomQuote);
+      setShowDailyQuote(true);
+      Taro.setStorageSync('quoteDate', today);
     }
+
+    // 首次打开显示指引
+    const hasShownGuide = Taro.getStorageSync('hasShownGuide');
+    if (!hasShownGuide) {
+      setShowGuide(true);
+    }
+
+    // 1秒后开始打字机欢迎语
+    setTimeout(() => {
+      startTypewriterWelcome();
+    }, 1000);
   }, []);
+
+  // 打字机欢迎语
+  const startTypewriterWelcome = () => {
+    const fullWelcomeText = '嘿，我是小暖。今天你的心情是什么颜色？可以随时和我聊聊，我都在。';
+    let index = 0;
+    const timer = setInterval(() => {
+      if (index < fullWelcomeText.length) {
+        setWelcomeText(fullWelcomeText.slice(0, index + 1));
+        index++;
+      } else {
+        clearInterval(timer);
+        // 打字机完成后添加到消息列表
+        const welcomeMessage: Message = {
+          id: 'welcome',
+          role: 'assistant',
+          content: fullWelcomeText,
+          timestamp: Date.now(),
+          aiMood: 'neutral',
+          showTimestamp: true
+        };
+        setMessages([welcomeMessage]);
+        saveMessages([welcomeMessage]);
+      }
+    }, 100);
+  };
+
+  // 加载缓存的对话
+  const loadCachedMessages = () => {
+    try {
+      const cached = Taro.getStorageSync('chatMessages');
+      if (cached && cached.length > 0) {
+        setMessages(cached);
+      }
+    } catch (error) {
+      console.error('加载缓存失败:', error);
+    }
+  };
+
+  // 保存消息到缓存
+  const saveMessages = (msgs: Message[]) => {
+    try {
+      // 只保存最近50条
+      const toSave = msgs.slice(-50);
+      Taro.setStorageSync('chatMessages', toSave);
+    } catch (error) {
+      console.error('保存消息失败:', error);
+    }
+  };
+
+  // 输入停止1秒后自动发送
+  useEffect(() => {
+    if (inputText.trim().length > 0 && !isLoading) {
+      const timer = setTimeout(() => {
+        handleSendMessage();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [inputText, isLoading]);
 
   // 思考提示轮播
   useEffect(() => {
     if (isLoading && !thinkTip) {
       const timer = setTimeout(() => {
-        const randomTip = thinkTips[Math.floor(Math.random() * thinkTips.length)];
+        const randomTip = thinkingTips[Math.floor(Math.random() * thinkingTips.length)];
         setThinkTip(randomTip);
-      }, 2000); // 2秒后显示提示
+      }, 1500);
       return () => clearTimeout(timer);
     } else if (!isLoading) {
       setThinkTip('');
@@ -85,10 +165,15 @@ const IndexPage = () => {
     }, 100);
   };
 
-  // 简单的情感分析（基于关键词）
+  // 点击空白处收起键盘
+  const handleTapBlank = () => {
+    Taro.hideKeyboard();
+  };
+
+  // 简单的情感分析
   const analyzeEmotion = (text: string): 'happy' | 'sad' | 'neutral' => {
-    const happyKeywords = ['开心', '高兴', '快乐', '幸福', '喜欢', '爱', '棒', '赞', '笑', '快乐'];
-    const sadKeywords = ['难过', '难过', '悲伤', '伤心', '痛苦', '累', '痛苦', '哭', '难受', '不开心', '低落'];
+    const happyKeywords = ['开心', '高兴', '快乐', '幸福', '喜欢', '爱', '棒', '赞', '笑'];
+    const sadKeywords = ['难过', '悲伤', '伤心', '痛苦', '累', '痛苦', '哭', '难受', '不开心', '低落'];
 
     for (const keyword of happyKeywords) {
       if (text.includes(keyword)) return 'happy';
@@ -102,10 +187,24 @@ const IndexPage = () => {
   // 获取微表情
   const getMoodEmoji = (mood?: 'happy' | 'sad' | 'neutral') => {
     switch (mood) {
-      case 'happy': return '☀️';
-      case 'sad': return '☔️';
-      default: return '☁️';
+      case 'happy': return '😊';
+      case 'sad': return '😢';
+      default: return '😴';
     }
+  };
+
+  // 获取AI回复的情感标签
+  const getAILabel = (content: string) => {
+    if (content.includes('抱抱') || content.includes('安慰') || content.includes('理解')) return '💕';
+    if (content.includes('开心') || content.includes('恭喜') || content.includes('棒')) return '⭐';
+    return '❤️';
+  };
+
+  // 判断是否显示时间戳
+  const shouldShowTimestamp = (currentMessage: Message, prevMessage?: Message) => {
+    if (!prevMessage) return true;
+    const timeDiff = currentMessage.timestamp - prevMessage.timestamp;
+    return timeDiff >= 3 * 60 * 1000; // 3分钟
   };
 
   // 发送消息
@@ -115,7 +214,6 @@ const IndexPage = () => {
       return;
     }
 
-    // 分析用户情绪
     const userEmotion = analyzeEmotion(messageToSend);
 
     // 添加用户消息
@@ -123,15 +221,19 @@ const IndexPage = () => {
       id: Date.now().toString(),
       role: 'user',
       content: messageToSend,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      showTimestamp: shouldShowTimestamp(
+        { id: '', role: 'user', content: messageToSend, timestamp: Date.now() },
+        messages[messages.length - 1]
+      )
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setInputText('');
     setIsLoading(true);
 
     try {
-      // 调用后端API
       const response = await Network.request({
         url: '/api/chat',
         method: 'POST',
@@ -144,19 +246,24 @@ const IndexPage = () => {
         }
       });
 
-      // 解析响应数据
       const aiResponse = response.data?.data?.content || '抱歉，我暂时无法回复，请稍后再试。';
 
-      // 添加AI消息（根据用户情绪设置AI情绪）
+      // 添加AI消息
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: aiResponse,
         timestamp: Date.now(),
-        aiMood: userEmotion
+        aiMood: userEmotion,
+        showTimestamp: shouldShowTimestamp(
+          { id: '', role: 'assistant', content: aiResponse, timestamp: Date.now() },
+          userMessage
+        )
       };
 
-      setMessages(prev => [...prev, aiMessage]);
+      const updatedMessages = [...newMessages, aiMessage];
+      setMessages(updatedMessages);
+      saveMessages(updatedMessages);
     } catch (error) {
       console.error('发送消息失败:', error);
       Taro.showToast({
@@ -173,13 +280,6 @@ const IndexPage = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  // 快捷短语
-  const quickPhrases = [
-    { text: '有点难过', emoji: '😔', color: '#FFB6A0' },
-    { text: '想被夸夸', emoji: '🥰', color: '#B8E0D0' },
-    { text: '睡不着', emoji: '😴', color: '#E3EDF5' }
-  ];
 
   return (
     <View className="flex flex-col h-screen" style={{ backgroundColor: '#FEF9F5' }}>
@@ -210,23 +310,24 @@ const IndexPage = () => {
         className="flex-1"
         scrollY
         scrollWithAnimation
+        onClick={handleTapBlank}
         style={{
           paddingTop: '60px',
-          paddingBottom: '240px'
+          paddingBottom: '220px'
         }}
       >
         <View style={{ padding: '16px' }}>
-          {/* 显示打字机效果中的欢迎语 */}
+          {/* 打字机欢迎语 */}
           {messages.length === 0 && welcomeText && (
             <View className="flex justify-start mb-3">
               <View className="self-start" style={{ marginRight: '8px' }}>
-                <Text style={{ fontSize: '32px' }}>☁️</Text>
+                <Text style={{ fontSize: '32px' }}>😴</Text>
               </View>
               <View
                 style={{
                   padding: '12px 16px',
                   maxWidth: '75%',
-                  borderRadius: '18px',
+                  borderRadius: '18px 18px 18px 4px',
                   backgroundColor: '#F0F0F0',
                   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
                 }}
@@ -245,6 +346,7 @@ const IndexPage = () => {
             </View>
           )}
 
+          {/* 消息列表 */}
           {messages.map((message) => (
             <View
               key={message.id}
@@ -252,9 +354,9 @@ const IndexPage = () => {
                 message.role === 'user' ? 'justify-end' : 'justify-start'
               }`}
             >
-              {/* AI消息显示头像 */}
+              {/* AI消息显示头像和情绪图标 */}
               {message.role === 'assistant' && (
-                <View className="self-start" style={{ marginRight: '8px' }}>
+                <View style={{ display: 'flex', flexDirection: 'column', marginRight: '8px', alignItems: 'center' }}>
                   <Text style={{ fontSize: '32px' }}>{getMoodEmoji(message.aiMood)}</Text>
                 </View>
               )}
@@ -264,11 +366,21 @@ const IndexPage = () => {
                 style={{
                   padding: '12px 16px',
                   maxWidth: '75%',
-                  borderRadius: '18px',
+                  borderRadius: message.role === 'user'
+                    ? '18px 18px 4px 18px'
+                    : '18px 18px 18px 4px',
                   backgroundColor: message.role === 'user' ? '#E6F0DA' : '#F0F0F0',
                   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
                 }}
               >
+                {/* AI情感标签 */}
+                {message.role === 'assistant' && (
+                  <View style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                    <Text style={{ fontSize: '14px', marginRight: '4px' }}>{getAILabel(message.content)}</Text>
+                    <Text style={{ fontSize: '12px', color: '#999999' }}>小暖</Text>
+                  </View>
+                )}
+
                 <Text
                   className="block"
                   style={{
@@ -279,34 +391,38 @@ const IndexPage = () => {
                 >
                   {message.content}
                 </Text>
-                <Text
-                  className="block"
-                  style={{
-                    fontSize: '12px',
-                    color: '#999999',
-                    marginTop: '4px'
-                  }}
-                >
-                  {new Date(message.timestamp).toLocaleTimeString('zh-CN', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </Text>
+
+                {/* 时间戳 */}
+                {message.showTimestamp && (
+                  <Text
+                    className="block"
+                    style={{
+                      fontSize: '12px',
+                      color: '#999999',
+                      marginTop: '6px'
+                    }}
+                  >
+                    {new Date(message.timestamp).toLocaleTimeString('zh-CN', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </Text>
+                )}
               </View>
             </View>
           ))}
 
-          {/* AI 正在输入状态 */}
+          {/* AI 思考状态 */}
           {isLoading && (
             <View className="flex justify-start mb-3">
               <View className="self-start" style={{ marginRight: '8px' }}>
-                <Text style={{ fontSize: '32px' }}>☁️</Text>
+                <Text style={{ fontSize: '32px' }}>😴</Text>
               </View>
               <View
                 style={{
                   padding: '12px 16px',
                   backgroundColor: '#F0F0F0',
-                  borderRadius: '18px',
+                  borderRadius: '18px 18px 18px 4px',
                   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
                 }}
               >
@@ -355,108 +471,232 @@ const IndexPage = () => {
       <View
         style={{
           position: 'fixed',
-          bottom: 50,
+          bottom: 0,
           left: 0,
           right: 0,
           backgroundColor: '#FEF9F5',
-          padding: '12px 16px',
+          padding: '8px 16px 16px',
           borderTop: '1px solid #E8E8E8',
           zIndex: 100
         }}
       >
-        {/* 快捷短语 */}
-        <View
+        {/* 情绪短语卡片（水平滚动） */}
+        <ScrollView
+          scrollX
+          className="mb-3"
           style={{
-            display: 'flex',
-            flexDirection: 'row',
-            justifyContent: 'center',
-            gap: '12px',
-            marginBottom: '12px'
+            whiteSpace: 'nowrap',
+            padding: '4px 0'
           }}
         >
-          {quickPhrases.map((phrase, index) => (
-            <View
-              key={index}
-              className="px-4 py-2 rounded-full"
-              style={{
-                backgroundColor: phrase.color,
-                boxShadow: `0 2px 4px ${phrase.color}4D`
-              }}
-              onClick={() => handleSendMessage(phrase.text)}
-            >
-              <Text
-                className="block"
+          <View style={{ display: 'flex', flexDirection: 'row', gap: '12px' }}>
+            {emotionPhrases.map((phrase, index) => (
+              <View
+                key={index}
+                className="px-4 py-2 rounded-full"
                 style={{
-                  fontSize: '14px',
-                  color: phrase.color === '#E3EDF5' ? '#3E3A39' : '#ffffff'
+                  backgroundColor: phrase.color,
+                  boxShadow: `0 2px 4px ${phrase.color}4D`,
+                  display: 'inline-block'
                 }}
+                onClick={() => handleSendMessage(phrase.text)}
               >
-                {phrase.emoji} {phrase.text}
-              </Text>
-            </View>
-          ))}
-        </View>
+                <Text
+                  className="block"
+                  style={{
+                    fontSize: '14px',
+                    color: phrase.color === '#E3EDF5' ? '#3E3A39' : '#ffffff'
+                  }}
+                >
+                  {phrase.emoji} {phrase.text}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
 
-        {/* 输入框和发送按钮 */}
+        {/* 输入框 */}
         <View
           style={{
             backgroundColor: '#ffffff',
-            borderRadius: '30px',
+            borderRadius: '24px',
             borderWidth: '1px',
             borderColor: '#E8E8E8',
-            padding: '10px 16px',
+            padding: '8px 12px',
             display: 'flex',
             flexDirection: 'row',
-            gap: '12px',
-            alignItems: 'center'
+            gap: '8px',
+            alignItems: 'flex-end'
           }}
         >
-          <Textarea
-            style={{
-              flex: 1,
-              minHeight: '40px',
-              maxHeight: '120px',
-              backgroundColor: 'transparent',
-              fontSize: '16px',
-              color: '#3E3A39'
-            }}
-            placeholder="说点什么..."
-            placeholderClass="text-[#999999]"
-            value={inputText}
-            onInput={(e) => setInputText(e.detail.value)}
-            maxlength={500}
-            autoHeight
-            showConfirmBar={false}
-            cursorSpacing={10}
-          />
-        </View>
+          {/* 麦克风图标 */}
+          <View style={{ display: 'flex', alignItems: 'center', paddingBottom: '4px' }}>
+            <Mic size={20} color="#999999" />
+          </View>
 
-        {/* 发送按钮 */}
-        <View
-          className="mt-3"
-          style={{
-            background: 'linear-gradient(135deg, #FFB6A0 0%, #FFD4B8 100%)',
-            borderRadius: '30px',
-            padding: '10px 24px',
-            alignSelf: 'center',
-            opacity: (!inputText.trim() || isLoading) ? 0.6 : 1,
-            transform: (!inputText.trim() || isLoading) ? 'scale(1)' : 'scale(1)',
-            transition: 'transform 0.2s ease'
-          }}
-          onClick={() => inputText.trim() && !isLoading && handleSendMessage()}
-        >
-          <Text
-            className="block"
+          {/* 输入框 */}
+          <View style={{ flex: 1 }}>
+            <Textarea
+              style={{
+                minHeight: '36px',
+                maxHeight: '120px',
+                backgroundColor: 'transparent',
+                fontSize: '16px',
+                color: '#3E3A39',
+                lineHeight: '24px'
+              }}
+              placeholder="说点什么..."
+              placeholderClass="text-[#999999]"
+              value={inputText}
+              onInput={(e) => setInputText(e.detail.value)}
+              maxlength={500}
+              autoHeight
+              showConfirmBar={false}
+              cursorSpacing={10}
+            />
+          </View>
+
+          {/* 发送按钮（小icon） */}
+          <View
             style={{
-              fontSize: '16px',
-              fontWeight: '500',
-              color: '#ffffff'
+              width: '36px',
+              height: '36px',
+              borderRadius: '18px',
+              backgroundColor: (!inputText.trim() || isLoading) ? '#E8E8E8' : '#FFB6A0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '2px'
             }}
+            onClick={() => inputText.trim() && !isLoading && handleSendMessage()}
           >
-            {isLoading ? '发送中' : '发送'}
-          </Text>
+            <Send
+              size={18}
+              color={(!inputText.trim() || isLoading) ? '#999999' : '#ffffff'}
+            />
+          </View>
         </View>
       </View>
+
+      {/* 每日治愈文案弹窗 */}
+      {showDailyQuote && (
+        <View
+          className="fixed inset-0 flex items-center justify-center"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 200
+          }}
+          onClick={() => {
+            setShowDailyQuote(false);
+            if (showGuide) {
+              setShowGuide(true);
+            }
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#FEF9F5',
+              borderRadius: '24px',
+              padding: '24px',
+              margin: '16px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+              maxWidth: '300px'
+            }}
+          >
+            <Text className="text-[24px] block mb-3 text-center">☁️</Text>
+            <Text
+              className="block text-center"
+              style={{
+                fontSize: '16px',
+                color: '#3E3A39',
+                marginBottom: '16px',
+                lineHeight: '24px'
+              }}
+            >
+              {currentQuote}
+            </Text>
+            <Text
+              className="block text-center"
+              style={{
+                fontSize: '14px',
+                color: '#999999'
+              }}
+            >
+              点击继续
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* 首次蒙层指引 */}
+      {showGuide && (
+        <View
+          className="fixed inset-0 flex items-center justify-center"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            zIndex: 300
+          }}
+          onClick={() => {
+            setShowGuide(false);
+            Taro.setStorageSync('hasShownGuide', true);
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#FEF9F5',
+              borderRadius: '24px',
+              padding: '24px',
+              margin: '16px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+              maxWidth: '320px'
+            }}
+          >
+            <Text className="text-[32px] block mb-3 text-center">👋</Text>
+            <Text
+              className="block text-center"
+              style={{
+                fontSize: '18px',
+                color: '#3E3A39',
+                marginBottom: '12px',
+                fontWeight: '500'
+              }}
+            >
+              欢迎来到树洞先生
+            </Text>
+            <Text
+              className="block text-center"
+              style={{
+                fontSize: '14px',
+                color: '#666666',
+                marginBottom: '8px',
+                lineHeight: '20px'
+              }}
+            >
+              你可以和我聊任何心事
+            </Text>
+            <Text
+              className="block text-center"
+              style={{
+                fontSize: '14px',
+                color: '#666666',
+                marginBottom: '16px',
+                lineHeight: '20px'
+              }}
+            >
+              点击下方按钮快速表达情绪
+            </Text>
+            <Text
+              className="block text-center"
+              style={{
+                fontSize: '14px',
+                color: '#999999'
+              }}
+            >
+              点击任意处开始
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* 退出关怀弹窗 */}
       {showGoodbyeModal && (
@@ -477,7 +717,7 @@ const IndexPage = () => {
               boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
             }}
           >
-            <Text className="block" style={{ fontSize: '24px', marginBottom: '12px' }}>🌙</Text>
+            <Text className="text-[24px] block mb-3">🌙</Text>
             <Text
               className="block"
               style={{

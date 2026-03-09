@@ -1,13 +1,13 @@
 export default typeof definePageConfig === 'function'
   ? definePageConfig({
-      navigationBarTitleText: 'AI陪聊助手',
-      navigationBarBackgroundColor: '#ffffff',
+      navigationBarTitleText: '树洞先生',
+      navigationBarBackgroundColor: '#FEF9F5',
       navigationBarTextStyle: 'black',
       enablePullDownRefresh: false
     })
   : {
-      navigationBarTitleText: 'AI陪聊助手',
-      navigationBarBackgroundColor: '#ffffff',
+      navigationBarTitleText: '树洞先生',
+      navigationBarBackgroundColor: '#FEF9F5',
       navigationBarTextStyle: 'black',
       enablePullDownRefresh: false
     }

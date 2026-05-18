@@ -234,19 +234,8 @@ const IndexPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await Network.request({
-        url: '/api/chat',
-        method: 'POST',
-        data: {
-          message: messageToSend,
-          history: messages.map(msg => ({
-            role: msg.role,
-            content: msg.content
-          }))
-        }
-      });
-
-      const aiResponse = response.data?.data?.content || '抱歉，我暂时无法回复，请稍后再试。';
+      const response = await Network.chat(messageToSend);
+      const aiResponse = response.message || '抱歉，我暂时无法回复，请稍后再试。';
 
       // 添加AI消息
       const aiMessage: Message = {

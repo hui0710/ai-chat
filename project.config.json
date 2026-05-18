@@ -1,7 +1,8 @@
 {
   "miniprogramRoot": "./dist",
-  "projectname": "coze-mini-program",
-  "description": "test",
+  "cloudfunctionRoot": "./cloudfunctions",
+  "projectname": "ai-chat-assistant",
+  "description": "AI聊天助手 - 云函数版本",
   "appid": "touristappid",
   "setting": {
     "urlCheck": true,
@@ -9,7 +10,9 @@
     "enhance": false,
     "compileHotReLoad": false,
     "postcss": false,
-    "minified": false
+    "minified": false,
+    "cloudfunctionRoot": "./cloudfunctions"
   },
-  "compileType": "miniprogram"
+  "compileType": "miniprogram",
+  "cloudbaseRoot": "./cloudfunctions/"
 }

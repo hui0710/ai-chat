@@ -2,6 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '@/app.module';
 import * as express from 'express';
 import { HttpStatusInterceptor } from '@/interceptors/http-status.interceptor';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+// 加载 .env.local 文件
+dotenv.config({ path: path.resolve(__dirname, '../../.env.local') });
 
 function parsePort(): number {
   const args = process.argv.slice(2);

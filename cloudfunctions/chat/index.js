@@ -158,6 +158,7 @@ exports.main = async (event, context) => {
   try {
     switch (action) {
       case 'sendMessage':
+      case 'chat':
         return await handleSendMessage(data)
       case 'getHistory':
         return await handleGetHistory(data)

@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, Textarea } from '@tarojs/components';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Taro from '@tarojs/taro';
 import { Network } from '@/network';
 import { Send, Mic } from 'lucide-react-taro';
@@ -53,7 +53,7 @@ const IndexPage = () => {
   const [showGuide, setShowGuide] = useState(false);
   const [currentQuote, setCurrentQuote] = useState('');
   const [thinkTip, setThinkTip] = useState('');
-  const scrollViewRef = useRef<any>(null);
+  const [scrollTop, setScrollTop] = useState(0);
 
   // 初始化：加载缓存、显示每日文案、显示指引
   useEffect(() => {
@@ -156,12 +156,7 @@ const IndexPage = () => {
   // 滚动到底部
   const scrollToBottom = () => {
     setTimeout(() => {
-      if (scrollViewRef.current) {
-        scrollViewRef.current.scrollTo({
-          scrollTop: 999999,
-          duration: 300
-        });
-      }
+      setScrollTop(Date.now());
     }, 100);
   };
 
@@ -313,9 +308,9 @@ const IndexPage = () => {
         }}
       >
         <ScrollView
-          ref={scrollViewRef}
           scrollY
           scrollWithAnimation
+          scrollTop={scrollTop}
           onClick={handleTapBlank}
           style={{
             height: '100%',

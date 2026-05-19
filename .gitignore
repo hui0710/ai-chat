@@ -40,3 +40,6 @@ pnpm-debug.log*
 # key/
 .env.local
 HUNYUAN_AI_CONFIG.md
+.env.local
+*.env
+*.key

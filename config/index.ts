@@ -94,15 +94,7 @@ export default defineConfig<'vite'>(async (merge, _env) => {
           '',
       ),
       TARO_ENV: JSON.stringify(process.env.TARO_ENV),
-    },
-    copy: {
-      patterns: [
-        {
-          from: '../cloudfunctions',
-          to: 'dist/cloudfunctions',
-        },
-      ],
-      options: {},
+      TARO_APP_CLOUD_ENV_ID: JSON.stringify(process.env.TARO_APP_CLOUD_ENV_ID || ''),
     },
     ...(process.env.TARO_ENV === 'tt' && {
       tt: {
@@ -147,6 +139,19 @@ export default defineConfig<'vite'>(async (merge, _env) => {
           rem2rpx: true,
           cssEntries: [path.resolve(__dirname, '../src/app.css')],
         }),
+        ...(process.env.TARO_ENV === 'weapp'
+          ? [
+              {
+                name: 'remove-weapp-nested-project-config',
+                closeBundle() {
+                  const nestedConfigPath = path.resolve(__dirname, '../dist/project.config.json');
+                  if (fs.existsSync(nestedConfigPath)) {
+                    fs.unlinkSync(nestedConfigPath);
+                  }
+                },
+              },
+            ]
+          : []),
         ...(process.env.TARO_ENV === 'tt'
           ? [
               {

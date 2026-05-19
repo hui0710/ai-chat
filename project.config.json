@@ -1,9 +1,9 @@
 {
-  "miniprogramRoot": "./dist",
-  "cloudfunctionRoot": "./cloudfunctions",
+  "miniprogramRoot": "dist/",
+  "cloudfunctionRoot": "cloudfunctions/",
   "projectname": "ai-chat-assistant",
   "description": "AI聊天助手 - 云函数版本",
-  "appid": "touristappid",
+  "appid": "wx5eb5e66f60ace316",
   "setting": {
     "urlCheck": true,
     "es6": false,
@@ -11,8 +11,22 @@
     "compileHotReLoad": false,
     "postcss": false,
     "minified": false,
-    "cloudfunctionRoot": "./cloudfunctions"
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
   },
   "compileType": "miniprogram",
-  "cloudbaseRoot": "./cloudfunctions/"
+  "libVersion": "3.16.0",
+  "srcMiniprogramRoot": "dist/",
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "condition": {},
+  "editorSetting": {
+    "tabIndent": "insertSpaces",
+    "tabSize": 2
+  }
 }

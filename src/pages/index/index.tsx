@@ -130,16 +130,6 @@ const IndexPage = () => {
     }
   };
 
-  // 输入停止1秒后自动发送
-  useEffect(() => {
-    if (inputText.trim().length > 0 && !isLoading) {
-      const timer = setTimeout(() => {
-        handleSendMessage();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [inputText, isLoading]);
-
   // 思考提示轮播
   useEffect(() => {
     if (isLoading && !thinkTip) {
@@ -156,11 +146,11 @@ const IndexPage = () => {
   // 滚动到底部
   const scrollToBottom = () => {
     setTimeout(() => {
-      setScrollTop(Date.now());
+      setScrollTop(prev => prev === 99999 ? 99998 : 99999);
     }, 100);
   };
 
-  // 点击空白处收起键盘
+  // 思考提示轮播
   const handleTapBlank = () => {
     Taro.hideKeyboard();
   };
@@ -229,8 +219,12 @@ const IndexPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await Network.chat(messageToSend);
-      const aiResponse = response.message || '抱歉，我暂时无法回复，请稍后再试。';
+      const chatHistory = newMessages.slice(-6).map(m => ({
+        role: m.role,
+        content: m.content
+      }));
+      const response = await Network.chat(messageToSend, chatHistory);
+      const aiResponse = response.content || '抱歉，我暂时无法回复，请稍后再试。';
 
       // 添加AI消息
       const aiMessage: Message = {
@@ -293,7 +287,7 @@ const IndexPage = () => {
             color: '#3E3A39'
           }}
         >
-          树洞先生
+          树洞先生11111
         </Text>
       </View>
 
@@ -351,6 +345,7 @@ const IndexPage = () => {
           {messages.map((message) => (
             <View
               key={message.id}
+              id={`msg-${message.id}`}
               className={`flex mb-3 ${
                 message.role === 'user' ? 'justify-end' : 'justify-start'
               }`}
@@ -415,7 +410,7 @@ const IndexPage = () => {
 
           {/* AI 思考状态 */}
           {isLoading && (
-            <View className="flex justify-start mb-3">
+            <View id="msg-loading" className="flex justify-start mb-3">
               <View className="self-start" style={{ marginRight: '8px' }}>
                 <Text style={{ fontSize: '32px' }}>😴</Text>
               </View>

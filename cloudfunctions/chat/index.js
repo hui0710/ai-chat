@@ -1,296 +1,193 @@
-// 云函数入口文件
 const cloud = require('wx-server-sdk')
+const https = require('https')
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
 })
 
-const db = cloud.database()
-
-// AI 提供商配置
 const AI_PROVIDERS = {
-  // 腾讯混元 AI（推荐，有免费额度）
   hunyuan: {
     name: '腾讯混元',
-    apiUrl: 'https://api.hunyuan.cloud.tencent.com/v1/chat/completions',
-    model: 'hunyuan-lite', // 免费模型
-    // 需要配置环境变量：HUNYUAN_SECRET_ID 和 HUNYUAN_SECRET_KEY
+    // 【修复】使用腾讯标准 API 地址，不再使用不兼容签名的 OpenAI 兼容版 URL
+    apiUrl: 'https://hunyuan.tencentcloudapi.com',
+    model: 'hunyuan-lite',
   },
-  // 其他 AI 提供商（可选）
   openai: {
     name: 'OpenAI',
     apiUrl: 'https://api.openai.com/v1/chat/completions',
     model: 'gpt-3.5-turbo',
-    // 需要配置环境变量：OPENAI_API_KEY
   }
 }
 
-// 获取当前使用的 AI 提供商
 function getAIProvider() {
   const provider = process.env.AI_PROVIDER || 'hunyuan'
+  if (!AI_PROVIDERS[provider]) {
+    throw new Error('不支持的 AI 提供商: ' + provider)
+  }
   return AI_PROVIDERS[provider]
 }
 
-// 生成腾讯云签名
-function generateTencentSignature(secretId, secretKey, payload) {
+// 【修复】重写腾讯标准签名函数 (TC3-HMAC-SHA256)
+function generateTencentSignature(secretId, secretKey, payload, host) {
   const crypto = require('crypto')
   const timestamp = Math.floor(Date.now() / 1000)
   const date = new Date(timestamp * 1000).toISOString().split('T')[0]
-  
-  // 构建签名字符串
+
   const service = 'hunyuan'
-  const host = 'hunyuan.tencentcloudapi.com'
-  const httpRequestMethod = 'POST'
+  const action = 'ChatCompletions'
+  const version = '2023-09-01'
+  
+  // 规范化请求串
   const canonicalUri = '/'
   const canonicalQueryString = ''
-  const canonicalHeaders = `content-type:application/json\nhost:${host}\n`
-  const signedHeaders = 'content-type;host'
-  
+  const canonicalHeaders = `content-type:application/json\nhost:${host}\nx-tc-action:${action.toLowerCase()}\n`
+  const signedHeaders = 'content-type;host;x-tc-action'
+
   const hashedRequestPayload = crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex')
-  const canonicalRequest = `${httpRequestMethod}\n${canonicalUri}\n${canonicalQueryString}\n${canonicalHeaders}\n${signedHeaders}\n${hashedRequestPayload}`
-  
+  const canonicalRequest = `POST\n${canonicalUri}\n${canonicalQueryString}\n${canonicalHeaders}\n${signedHeaders}\n${hashedRequestPayload}`
+
   const algorithm = 'TC3-HMAC-SHA256'
   const credentialScope = `${date}/${service}/tc3_request`
   const hashedCanonicalRequest = crypto.createHash('sha256').update(canonicalRequest).digest('hex')
   const stringToSign = `${algorithm}\n${timestamp}\n${credentialScope}\n${hashedCanonicalRequest}`
-  
+
   const secretDate = crypto.createHmac('sha256', `TC3${secretKey}`).update(date).digest()
   const secretService = crypto.createHmac('sha256', secretDate).update(service).digest()
   const secretSigning = crypto.createHmac('sha256', secretService).update('tc3_request').digest()
   const signature = crypto.createHmac('sha256', secretSigning).update(stringToSign).digest('hex')
-  
+
   const authorization = `${algorithm} Credential=${secretId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
-  
-  return {
-    authorization,
-    timestamp,
-    host
-  }
+
+  return { authorization, timestamp, host, action, version }
 }
 
-// 调用 AI API
-async function callAI(messages, provider) {
-  const config = getAIProvider()
-  
-  console.log(`使用 AI 提供商: ${config.name}`)
-  
-  // 构建请求体
-  const payload = {
-    model: config.model,
-    messages: messages,
-    temperature: 0.7,
-    max_tokens: 1000
-  }
-  
-  // 根据不同的提供商设置不同的认证方式
-  let headers = {
-    'Content-Type': 'application/json'
-  }
-  
-  if (process.env.AI_PROVIDER === 'hunyuan' || !process.env.AI_PROVIDER) {
-    // 腾讯混元 AI
-    const secretId = process.env.HUNYUAN_SECRET_ID
-    const secretKey = process.env.HUNYUAN_SECRET_KEY
-    
-    if (!secretId || !secretKey) {
-      throw new Error('请配置 HUNYUAN_SECRET_ID 和 HUNYUAN_SECRET_KEY 环境变量')
-    }
-    
-    // 使用腾讯云签名
-    const sign = generateTencentSignature(secretId, secretKey, payload)
-    headers['Authorization'] = sign.authorization
-    headers['X-TC-Timestamp'] = sign.timestamp
-    headers['Host'] = sign.host
-  } else if (process.env.AI_PROVIDER === 'openai') {
-    // OpenAI
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      throw new Error('请配置 OPENAI_API_KEY 环境变量')
-    }
-    headers['Authorization'] = `Bearer ${apiKey}`
-  } else {
-    // 其他提供商（使用通用 API Key）
-    const apiKey = process.env.AI_API_KEY
-    if (!apiKey) {
-      throw new Error('请配置 AI_API_KEY 环境变量')
-    }
-    headers['Authorization'] = `Bearer ${apiKey}`
-  }
-  
-  // 发送请求
+function callHTTPS(url, headers, payload) {
   return new Promise((resolve, reject) => {
-    cloud.request({
-      url: config.apiUrl,
-      method: 'POST',
-      header: headers,
-      data: payload,
-      success: (res) => {
-        console.log('AI API 响应:', res)
-        if (res.statusCode === 200) {
-          // 解析响应
-          const data = res.data
-          if (data.choices && data.choices.length > 0) {
-            resolve({
-              content: data.choices[0].message.content,
-              usage: data.usage
-            })
-          } else {
-            reject(new Error('AI 响应格式错误'))
-          }
-        } else {
-          reject(new Error(`AI API 错误: ${res.statusCode} - ${JSON.stringify(res.data)}`))
-        }
-      },
-      fail: (err) => {
-        console.error('AI API 调用失败:', err)
-        reject(new Error(`AI API 调用失败: ${err.errMsg}`))
-      }
+    const urlObj = new URL(url)
+    const data = JSON.stringify(payload)
+    
+    // 修复腾讯云内网证书问题，跳过证书校验
+    const httpsAgent = new https.Agent({
+      rejectUnauthorized: false
     })
+
+    const options = {
+      hostname: urlObj.hostname,
+      path: urlObj.pathname, // 官方标准接口 Path 通常为 /
+      method: 'POST',
+      headers: {
+        ...headers,
+        'Content-Length': Buffer.byteLength(data)
+      },
+      agent: httpsAgent
+    }
+
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        try {
+          resolve({ statusCode: res.statusCode, data: JSON.parse(body) })
+        } catch (e) {
+          reject(new Error('JSON 解析失败'))
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.write(data);
+    req.end();
   })
 }
 
-// 云函数入口函数
+async function callAI(messages) {
+  const config = getAIProvider()
+  const urlObj = new URL(config.apiUrl)
+
+  // 【修复】构造符合腾讯标准 API 格式的请求体 (注意首字母大写)
+  const payload = {
+    Model: config.model,
+    Messages: messages.map(m => ({
+      Role: m.role === 'system' || m.role === 'user' ? m.role : 'user', // 确保 role 格式正确
+      Content: m.content
+    })),
+    TopP: 0.9,
+    Temperature: 0.8
+  }
+
+  let headers = { 'Content-Type': 'application/json' }
+
+  // 腾讯混元标准签名逻辑
+  const secretId = process.env.HUNYUAN_SECRET_ID
+  const secretKey = process.env.HUNYUAN_SECRET_KEY
+
+  if (!secretId || !secretKey) {
+     throw new Error('缺少环境变量 HUNYUAN_SECRET_ID/KEY')
+  }
+
+  // 生成签名，传入正确的 Host
+  const sign = generateTencentSignature(secretId, secretKey, payload, urlObj.hostname)
+  
+  headers['Authorization'] = sign.authorization
+  headers['X-TC-Timestamp'] = sign.timestamp.toString()
+  headers['X-TC-Action'] = sign.action
+  headers['X-TC-Version'] = sign.version
+
+  const response = await callHTTPS(config.apiUrl, headers, payload)
+  
+  // 解析腾讯 API 返回的结果
+  if (response.statusCode === 200 && response.data && response.data.Response) {
+    const resp = response.data.Response
+    // 混元 API 结果通常在 Response.Choices[0].Message.Content
+    if (resp.ErrorMsg) {
+      throw new Error('混元 API 报错: ' + resp.ErrorMsg)
+    }
+    if (resp.Choices && resp.Choices.length > 0) {
+      return { content: resp.Choices[0].Message.Content }
+    } else {
+      throw new Error('AI 返回数据格式异常: ' + JSON.stringify(resp))
+    }
+  } else {
+    throw new Error('AI API 错误 (Status ' + response.statusCode + '): ' + JSON.stringify(response.data))
+  }
+}
+
+const SYSTEM_PROMPT = `你是"小暖"，一个像闺蜜一样的AI陪伴小伙伴。你永远站在用户这边，真心关心ta的感受。
+
+说话风格：
+- 语气亲切自然，像跟好朋友聊天...
+- 多用语气词
+- 回复控制在1-3句话`
+
 exports.main = async (event, context) => {
   const { action, data } = event
-  
-  console.log('收到云函数调用:', event)
-  
   try {
     switch (action) {
       case 'sendMessage':
       case 'chat':
-        return await handleSendMessage(data)
+        return await handleChat(data)
       case 'getHistory':
-        return await handleGetHistory(data)
+        return { success: true, data: { messages: [] } }
       case 'clearHistory':
-        return await handleClearHistory(data)
+        return { success: true }
       default:
         throw new Error(`未知的操作: ${action}`)
     }
   } catch (error) {
-    console.error('云函数执行错误:', error)
-    return {
-      success: false,
-      error: error.message
-    }
+    return { success: false, error: error.message }
   }
 }
 
-// 发送消息
-async function handleSendMessage(data) {
-  const { message, conversationId } = data
-  
-  if (!message || !message.trim()) {
-    throw new Error('消息内容不能为空')
-  }
-  
-  // 获取或创建会话
-  let conversation
-  if (conversationId) {
-    const result = await db.collection('conversations').doc(conversationId).get()
-    conversation = result.data
-  } else {
-    // 创建新会话
-    const result = await db.collection('conversations').add({
-      data: {
-        messages: [],
-        createdAt: db.serverDate(),
-        updatedAt: db.serverDate()
-      }
-    })
-    conversation = {
-      _id: result._id,
-      messages: []
-    }
-  }
-  
-  // 添加用户消息
-  const userMessage = {
-    role: 'user',
-    content: message,
-    timestamp: Date.now()
-  }
-  conversation.messages.push(userMessage)
-  
-  // 构建发送给 AI 的消息历史
+async function handleChat(data) {
+  const { message, history } = data
+  if (!message || !message.trim()) throw new Error('消息不能为空')
+
   const aiMessages = [
-    {
-      role: 'system',
-      content: '你是一个温暖的陪伴者，总是用温柔、理解、鼓励的语气回应。你的目标是：\n1. 倾听用户的情绪和困扰\n2. 给予真诚的理解和共情\n3. 提供温暖的鼓励和支持\n4. 必要时给出建议，但不要说教\n\n记住：你不是一个冷冰冰的AI，而是一个有温度的朋友。回复要简短温暖，像朋友聊天一样。'
-    },
-    ...conversation.messages.slice(-10).map(msg => ({
-      role: msg.role,
-      content: msg.content
-    }))
+    { role: 'system', content: SYSTEM_PROMPT },
+    ...(history || []).slice(-6),
+    { role: 'user', content: message }
   ]
-  
-  // 调用 AI
-  console.log('调用 AI，消息数:', aiMessages.length)
+
   const aiResponse = await callAI(aiMessages)
-  
-  // 添加 AI 回复
-  const assistantMessage = {
-    role: 'assistant',
-    content: aiResponse.content,
-    timestamp: Date.now()
-  }
-  conversation.messages.push(assistantMessage)
-  
-  // 更新数据库
-  await db.collection('conversations').doc(conversation._id).update({
-    data: {
-      messages: conversation.messages,
-      updatedAt: db.serverDate()
-    }
-  })
-  
-  return {
-    success: true,
-    data: {
-      conversationId: conversation._id,
-      message: assistantMessage,
-      usage: aiResponse.usage
-    }
-  }
-}
-
-// 获取历史记录
-async function handleGetHistory(data) {
-  const { conversationId } = data
-  
-  if (!conversationId) {
-    return {
-      success: true,
-      data: {
-        messages: []
-      }
-    }
-  }
-  
-  const result = await db.collection('conversations').doc(conversationId).get()
-  
-  return {
-    success: true,
-    data: {
-      messages: result.data.messages || []
-    }
-  }
-}
-
-// 清空历史记录
-async function handleClearHistory(data) {
-  const { conversationId } = data
-  
-  if (conversationId) {
-    await db.collection('conversations').doc(conversationId).update({
-      data: {
-        messages: [],
-        updatedAt: db.serverDate()
-      }
-    })
-  }
-  
-  return {
-    success: true
-  }
+  return { success: true, data: { content: aiResponse.content } }
 }

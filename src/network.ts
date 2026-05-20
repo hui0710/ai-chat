@@ -69,11 +69,24 @@ export namespace Network {
     if (isMiniApp()) {
       // 小程序环境：调用云函数
       console.log('[Network] 使用云函数调用')
+      // 获取用户openid用于云函数情绪偏好缓存
+      let openid = ''
+      try {
+        const loginRes = await Taro.cloud.callFunction({
+          name: 'chat',
+          data: { action: 'getOpenid' }
+        })
+        openid = (loginRes.result as any)?.openid || ''
+      } catch (e) {
+        console.log('[Network] 获取openid失败，继续使用匿名模式')
+      }
+
       const result = await callCloudFunction('chat', {
         action: 'chat',
         data: {
           message,
           history,
+          openid,
         },
       })
 

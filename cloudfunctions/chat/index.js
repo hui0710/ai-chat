@@ -151,6 +151,9 @@ exports.main = async (event, context) => {
         return { success: true, data: { messages: [] } }
       case 'clearHistory':
         return { success: true }
+      case 'getOpenid':
+        // 返回当前用户openid，用于前端情绪偏好缓存
+        return { success: true, data: { openid: context.OPENID || '' } }
       default:
         throw new Error(`未知的操作: ${action}`)
     }
@@ -159,16 +162,85 @@ exports.main = async (event, context) => {
   }
 }
 
+/** 用户情绪偏好缓存（云函数内存缓存，实际生产建议用数据库） */
+const userEmotionCache = new Map()
+
+/** 解析用户情绪标签（简易版，与前端 emotion-engine.ts 对应） */
+function detectEmotionTag(message) {
+  const lowerMsg = message.toLowerCase()
+  const emotionKeywords = {
+    sad: ['委屈', '难过', '伤心', '想哭', '心酸', '难受', '痛苦'],
+    tired: ['累', '疲惫', '好累', '身心俱疲', '撑不住'],
+    anxious: ['焦虑', '内耗', '纠结', '胡思乱想', '放不下', '想太多', '烦'],
+    insomnia: ['睡不着', '失眠', '夜深', '熬夜'],
+    work: ['工作', '加班', '老板', '同事', '职场', '上班', 'kpi', '绩效'],
+    love: ['感情', '分手', '失恋', '喜欢', '爱', '恋爱', '前任', '暧昧'],
+    happy: ['开心', '高兴', '快乐', '喜悦', '幸福', '棒', '赞', '太好了'],
+    lost: ['迷茫', '无助', '不知道', '怎么办', '未来', '方向', '困惑'],
+    relief: ['放下', '释怀', '想开', '看淡', '算了', '没关系'],
+    silence: ['不想说', '静静', '安静', '沉默', '发呆', '不知道说什么'],
+    encourage: ['加油', '坚持', '努力', '撑住', '不放弃', '打气'],
+  }
+
+  for (const [tag, keywords] of Object.entries(emotionKeywords)) {
+    for (const keyword of keywords) {
+      if (lowerMsg.includes(keyword.toLowerCase())) {
+        return tag
+      }
+    }
+  }
+  return null
+}
+
+/** 获取用户偏好的安慰风格 */
+function getUserComfortStyle(openid) {
+  if (!openid) return null
+  return userEmotionCache.get(openid) || null
+}
+
+/** 更新用户情绪偏好 */
+function updateUserEmotionCache(openid, emotionTag) {
+  if (!openid || !emotionTag) return
+  const current = userEmotionCache.get(openid) || { tags: [], count: 0 }
+  current.tags.push(emotionTag)
+  current.count += 1
+  // 只保留最近20次记录
+  if (current.tags.length > 20) current.tags.shift()
+  userEmotionCache.set(openid, current)
+}
+
 async function handleChat(data) {
-  const { message, history } = data
+  const { message, history, openid } = data
   if (!message || !message.trim()) throw new Error('消息不能为空')
 
+  // 1. 识别用户情绪标签
+  const emotionTag = detectEmotionTag(message)
+
+  // 2. 更新用户情绪偏好缓存
+  if (emotionTag && openid) {
+    updateUserEmotionCache(openid, emotionTag)
+  }
+
+  // 3. 获取用户偏好风格，注入提示词
+  const userStyle = getUserComfortStyle(openid)
+  let enhancedSystemPrompt = SYSTEM_PROMPT
+  if (userStyle && userStyle.count >= 3) {
+    // 用户有3次以上记录，锁定专属安慰风格
+    const recentTags = userStyle.tags.slice(-5)
+    const tagCount = {}
+    recentTags.forEach(t => { tagCount[t] = (tagCount[t] || 0) + 1 })
+    const dominantTag = Object.entries(tagCount).sort((a, b) => b[1] - a[1])[0]?.[0]
+    if (dominantTag) {
+      enhancedSystemPrompt += `\n\n【用户专属适配】该用户近期主要情绪倾向为「${dominantTag}」，请自动适配对应的安慰风格，保持长期一致性。`
+    }
+  }
+
   const aiMessages = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: enhancedSystemPrompt },
     ...(history || []).slice(-6),
     { role: 'user', content: message }
   ]
 
   const aiResponse = await callAI(aiMessages)
-  return { success: true, data: { content: aiResponse.content } }
+  return { success: true, data: { content: aiResponse.content, emotionTag } }
 }

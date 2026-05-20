@@ -28,7 +28,7 @@ import {
   consumeQuota,
   getExhaustedTip,
 } from "../../utils/quota";
-import { matchCacheReply } from "../../utils/cache-replies";
+import { getComfortReply } from "../../utils/emotion-engine";
 import "./index.css";
 
 // 消息类型定义
@@ -261,22 +261,22 @@ const IndexPage = () => {
     setInputText("");
     setIsLoading(true);
 
-    // ── 策略1：高频话术本地缓存 ──
-    const cacheReply = matchCacheReply(messageToSend);
-    if (cacheReply) {
-      // 命中本地缓存，直接返回预设回复（不消耗额度、不调用AI）
+    // ── 策略1：情绪话术本地缓存（优先匹配 ai.config.ts 话术库） ──
+    const comfortReply = getComfortReply(messageToSend);
+    if (comfortReply) {
+      // 命中情绪话术库，直接返回预设回复（不消耗额度、不调用AI）
       setTimeout(() => {
         const aiMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: cacheReply,
+          content: comfortReply,
           timestamp: Date.now(),
           aiMood: userEmotion,
           showTimestamp: shouldShowTimestamp(
             {
               id: "",
               role: "assistant",
-              content: cacheReply,
+              content: comfortReply,
               timestamp: Date.now(),
             },
             userMessage,

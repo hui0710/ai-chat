@@ -1,12 +1,10 @@
 export default defineAppConfig({
-  pages: [
-    'pages/index/index'
-  ],
+  pages: ["pages/index/index"],
   window: {
-    backgroundTextStyle: 'light',
-    navigationBarBackgroundColor: '#FEF9F5',
-    navigationBarTitleText: '树洞先生',
-    navigationBarTextStyle: 'black'
+    backgroundTextStyle: "light",
+    navigationBarBackgroundColor: "#FEF9F5",
+    navigationBarTitleText: "浅草心情",
+    navigationBarTextStyle: "black",
   },
-  cloud: true
-})
+  cloud: true,
+});

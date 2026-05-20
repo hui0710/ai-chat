@@ -5,22 +5,10 @@ cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
 })
 
-const AI_PROVIDERS = {
-  hunyuan: {
-    name: '腾讯混元',
-    // 【修复】使用腾讯标准 API 地址，不再使用不兼容签名的 OpenAI 兼容版 URL
-    apiUrl: 'https://hunyuan.tencentcloudapi.com',
-    model: 'hunyuan-lite',
-  },
-  openai: {
-    name: 'OpenAI',
-    apiUrl: 'https://api.openai.com/v1/chat/completions',
-    model: 'gpt-3.5-turbo',
-  }
-}
+const { SYSTEM_PROMPT, AI_PROVIDERS, DEFAULT_PROVIDER, AI_REQUEST_CONFIG } = require('../../config/ai.config')
 
 function getAIProvider() {
-  const provider = process.env.AI_PROVIDER || 'hunyuan'
+  const provider = process.env.AI_PROVIDER || DEFAULT_PROVIDER
   if (!AI_PROVIDERS[provider]) {
     throw new Error('不支持的 AI 提供商: ' + provider)
   }
@@ -111,8 +99,8 @@ async function callAI(messages) {
       Role: m.role === 'system' || m.role === 'user' ? m.role : 'user', // 确保 role 格式正确
       Content: m.content
     })),
-    TopP: 0.9,
-    Temperature: 0.8
+    TopP: AI_REQUEST_CONFIG.topP,
+    Temperature: AI_REQUEST_CONFIG.temperature
   }
 
   let headers = { 'Content-Type': 'application/json' }
@@ -151,13 +139,6 @@ async function callAI(messages) {
     throw new Error('AI API 错误 (Status ' + response.statusCode + '): ' + JSON.stringify(response.data))
   }
 }
-
-const SYSTEM_PROMPT = `你是"小暖"，一个像闺蜜一样的AI陪伴小伙伴。你永远站在用户这边，真心关心ta的感受。
-
-说话风格：
-- 语气亲切自然，像跟好朋友聊天...
-- 多用语气词
-- 回复控制在1-3句话`
 
 exports.main = async (event, context) => {
   const { action, data } = event

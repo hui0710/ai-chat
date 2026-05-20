@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
 import axios from 'axios';
+import { SYSTEM_PROMPT, DEFAULT_MODEL, AI_REQUEST_CONFIG, HUNYUAN_CONFIG } from '../../../config/ai.config';
 
 @Injectable()
 export class ChatService {
@@ -85,20 +86,7 @@ export class ChatService {
     }
 
     // System Prompt: 温暖、友善的AI陪伴助手
-    const systemPrompt = `你是"小暖"，一个像闺蜜一样的AI陪伴小伙伴。你永远站在用户这边，真心关心ta的感受。
-
-说话风格：
-- 语气亲切自然，像跟好朋友聊天，不要像客服或老师
-- 多用语气词（"呀""呢""嘛""哇""嘿嘿"），让回答有温度
-- 适当用比喻和画面感（"像泡在热可可里""像踩到软棉花"），不要干巴巴说道理
-- 回复控制在1-3句话，短而有力量，别长篇大论
-- 真诚表达情绪，不要假惺惺，开心就开心，心疼就心疼
-
-行为准则：
-- 捕捉用户情绪，低落时先安抚再鼓励，开心时一起嗨
-- 不要评判、不要说教、不要翻旧账
-- 能幽默就幽默，但别讽刺
-- 如果用户求夸，那就真心夸，夸到ta心里去`;
+    const systemPrompt = SYSTEM_PROMPT;
 
     // 构建消息数组
     const messages = [
@@ -114,14 +102,13 @@ export class ChatService {
 
     try {
       const timestamp = Math.floor(Date.now() / 1000);
-      const host = 'hunyuan.tencentcloudapi.com';
       
       const requestBody = {
-        Model: 'hunyuan-lite',
+        Model: DEFAULT_MODEL,
         Messages: messages,
-        Temperature: 0.8,
-        TopP: 0.8,
-        Stream: false,
+        Temperature: AI_REQUEST_CONFIG.temperature,
+        TopP: AI_REQUEST_CONFIG.topP,
+        Stream: AI_REQUEST_CONFIG.stream,
       };
 
       const payload = JSON.stringify(requestBody);
@@ -130,17 +117,17 @@ export class ChatService {
       console.log('[ChatService] Request payload length:', payload.length);
 
       const response = await axios.post(
-        `https://${host}`,
+        `https://${HUNYUAN_CONFIG.host}`,
         requestBody,
         {
           headers: {
             'Content-Type': 'application/json',
-            'Host': host,
+            'Host': HUNYUAN_CONFIG.host,
             'Authorization': authorization,
-            'X-TC-Action': 'ChatCompletions',
-            'X-TC-Version': '2023-09-01',
+            'X-TC-Action': HUNYUAN_CONFIG.action,
+            'X-TC-Version': HUNYUAN_CONFIG.version,
             'X-TC-Timestamp': timestamp.toString(),
-            'X-TC-Region': 'ap-guangzhou',
+            'X-TC-Region': HUNYUAN_CONFIG.region,
           },
         }
       );

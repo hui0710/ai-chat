@@ -2,7 +2,7 @@
 
 ## 品牌定位
 
-**应用名称**: 树洞先生 / 小暖
+**应用名称**: 浅草心情
 **应用定位**: 智能AI陪伴助手，提供温暖、友善的对话体验
 **设计风格**: 简约、温暖、治愈、精致
 **目标用户**: 需要情感陪伴、倾诉交流的用户
@@ -84,13 +84,14 @@
 ### 消息气泡组件
 
 **用户消息**:
+
 ```tsx
 <View className="flex justify-end mb-3">
   <View
     className="px-4 py-3 max-w-[75%] rounded-[18px]"
     style={{
-      backgroundColor: '#E6F0DA',
-      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
+      backgroundColor: "#E6F0DA",
+      boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
     }}
   >
     <Text className="text-[16px] text-[#3E3A39] block">用户消息内容</Text>
@@ -100,6 +101,7 @@
 ```
 
 **AI消息**:
+
 ```tsx
 <View className="flex justify-start mb-3 gap-2">
   <View className="self-start">
@@ -108,8 +110,8 @@
   <View
     className="px-4 py-3 max-w-[75%] rounded-[18px]"
     style={{
-      backgroundColor: '#F0F0F0',
-      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
+      backgroundColor: "#F0F0F0",
+      boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
     }}
   >
     <Text className="text-[16px] text-[#3E3A39] block">AI回复内容</Text>
@@ -129,32 +131,36 @@
 ### 输入框组件
 
 ```tsx
-<View style={{
-  position: 'fixed',
-  bottom: 50,
-  left: 0,
-  right: 0,
-  display: 'flex',
-  flexDirection: 'row',
-  gap: '12px',
-  padding: '12px 16px',
-  backgroundColor: '#ffffff',
-  borderTop: '1px solid #e5e7eb',
-  zIndex: 100
-}}>
-  <View style={{
-    flex: 1,
-    backgroundColor: '#f3f4f6',
-    borderRadius: '24px',
-    padding: '10px 16px'
-  }}>
+<View
+  style={{
+    position: "fixed",
+    bottom: 50,
+    left: 0,
+    right: 0,
+    display: "flex",
+    flexDirection: "row",
+    gap: "12px",
+    padding: "12px 16px",
+    backgroundColor: "#ffffff",
+    borderTop: "1px solid #e5e7eb",
+    zIndex: 100,
+  }}
+>
+  <View
+    style={{
+      flex: 1,
+      backgroundColor: "#f3f4f6",
+      borderRadius: "24px",
+      padding: "10px 16px",
+    }}
+  >
     <Textarea
       style={{
-        width: '100%',
-        minHeight: '40px',
-        maxHeight: '120px',
-        backgroundColor: 'transparent',
-        fontSize: '16px'
+        width: "100%",
+        minHeight: "40px",
+        maxHeight: "120px",
+        backgroundColor: "transparent",
+        fontSize: "16px",
       }}
       placeholder="说点什么..."
       placeholderClass="text-gray-400"
@@ -163,9 +169,7 @@
     />
   </View>
   <View style={{ flexShrink: 0 }}>
-    <Button className="bg-indigo-500 text-white rounded-full px-6">
-      发送
-    </Button>
+    <Button className="bg-indigo-500 text-white rounded-full px-6">发送</Button>
   </View>
 </View>
 ```
@@ -177,22 +181,22 @@
   <View
     className="w-2 h-2 rounded-full"
     style={{
-      backgroundColor: '#FFB6A0',
-      animation: 'bounce 1s infinite'
+      backgroundColor: "#FFB6A0",
+      animation: "bounce 1s infinite",
     }}
   />
   <View
     className="w-2 h-2 rounded-full"
     style={{
-      backgroundColor: '#FFB6A0',
-      animation: 'bounce 1s infinite 0.2s'
+      backgroundColor: "#FFB6A0",
+      animation: "bounce 1s infinite 0.2s",
     }}
   />
   <View
     className="w-2 h-2 rounded-full"
     style={{
-      backgroundColor: '#FFB6A0',
-      animation: 'bounce 1s infinite 0.4s'
+      backgroundColor: "#FFB6A0",
+      animation: "bounce 1s infinite 0.4s",
     }}
   />
   <Text className="text-[14px] text-[#999999] block ml-2">
@@ -208,17 +212,15 @@
   <View
     className="rounded-[24px] p-6 mx-4"
     style={{
-      backgroundColor: '#FEF9F5',
-      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
+      backgroundColor: "#FEF9F5",
+      boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
     }}
   >
     <Text className="text-[24px] block mb-3">🌙</Text>
     <Text className="text-[16px] text-[#3E3A39] block mb-2">
       记得照顾好自己
     </Text>
-    <Text className="text-[14px] text-[#999999] block">
-      明天我还在这里等你
-    </Text>
+    <Text className="text-[14px] text-[#999999] block">明天我还在这里等你</Text>
   </View>
 </View>
 ```
@@ -236,13 +238,14 @@
 **单页应用**: 仅需首页聊天界面，无需 TabBar
 
 **页面配置**:
+
 ```typescript
 export default definePageConfig({
-  navigationBarTitleText: 'AI陪聊助手',
-  navigationBarBackgroundColor: '#ffffff',
-  navigationBarTextStyle: 'black',
-  enablePullDownRefresh: false
-})
+  navigationBarTitleText: "AI陪聊助手",
+  navigationBarBackgroundColor: "#ffffff",
+  navigationBarTextStyle: "black",
+  enablePullDownRefresh: false,
+});
 ```
 
 ## 跨端兼容性规范
@@ -262,7 +265,7 @@ export default definePageConfig({
   scrollY
   scrollWithAnimation
   scrollTop={scrollTop}
-  style={{ paddingBottom: '80px' }}
+  style={{ paddingBottom: "80px" }}
 >
   {/* 消息内容 */}
 </ScrollView>

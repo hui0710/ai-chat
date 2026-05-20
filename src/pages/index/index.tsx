@@ -22,6 +22,13 @@ import {
   GOODBYE_SUBTITLE,
   AI_NAME,
 } from "../../../config/ai.config";
+import {
+  getRemainingQuota,
+  hasQuota,
+  consumeQuota,
+  getExhaustedTip,
+} from "../../utils/quota";
+import { matchCacheReply } from "../../utils/cache-replies";
 import "./index.css";
 
 // 消息类型定义
@@ -47,11 +54,15 @@ const IndexPage = () => {
   const [currentQuote, setCurrentQuote] = useState("");
   const [thinkTip, setThinkTip] = useState("");
   const [scrollTop, setScrollTop] = useState(0);
+  const [remainingQuota, setRemainingQuota] = useState(0);
 
   // 初始化：加载缓存、显示每日文案、显示指引
   useEffect(() => {
     // 加载缓存的对话
     loadCachedMessages();
+
+    // 刷新额度显示
+    setRemainingQuota(getRemainingQuota());
 
     // 显示每日治愈文案
     const savedDate = Taro.getStorageSync("quoteDate");
@@ -250,6 +261,67 @@ const IndexPage = () => {
     setInputText("");
     setIsLoading(true);
 
+    // ── 策略1：高频话术本地缓存 ──
+    const cacheReply = matchCacheReply(messageToSend);
+    if (cacheReply) {
+      // 命中本地缓存，直接返回预设回复（不消耗额度、不调用AI）
+      setTimeout(() => {
+        const aiMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: cacheReply,
+          timestamp: Date.now(),
+          aiMood: userEmotion,
+          showTimestamp: shouldShowTimestamp(
+            {
+              id: "",
+              role: "assistant",
+              content: cacheReply,
+              timestamp: Date.now(),
+            },
+            userMessage,
+          ),
+        };
+        const updatedMessages = [...newMessages, aiMessage];
+        setMessages(updatedMessages);
+        saveMessages(updatedMessages);
+        setIsLoading(false);
+        scrollToBottom();
+      }, 600);
+      return;
+    }
+
+    // ── 策略2：额度管控 ──
+    if (!hasQuota()) {
+      setIsLoading(false);
+      const exhaustedMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: getExhaustedTip(),
+        timestamp: Date.now(),
+        aiMood: "neutral",
+        showTimestamp: shouldShowTimestamp(
+          {
+            id: "",
+            role: "assistant",
+            content: getExhaustedTip(),
+            timestamp: Date.now(),
+          },
+          userMessage,
+        ),
+      };
+      const updatedMessages = [...newMessages, exhaustedMessage];
+      setMessages(updatedMessages);
+      saveMessages(updatedMessages);
+      scrollToBottom();
+      return;
+    }
+
+    // 消耗一次额度
+    consumeQuota();
+    setRemainingQuota(getRemainingQuota());
+
+    // ── 策略3：调用AI大模型 ──
     try {
       const chatHistory = newMessages.slice(-6).map((m) => ({
         role: m.role,
@@ -545,6 +617,28 @@ const IndexPage = () => {
           zIndex: 100,
         }}
       >
+        {/* 额度提示 */}
+        {remainingQuota > 0 && remainingQuota <= 3 && (
+          <View
+            className="mb-2 px-3 py-1 rounded-full"
+            style={{
+              backgroundColor: "#FFF3E0",
+              display: "inline-block",
+              alignSelf: "center",
+            }}
+          >
+            <Text
+              className="block"
+              style={{
+                fontSize: "12px",
+                color: "#FF8C42",
+              }}
+            >
+              今日剩余 {remainingQuota} 次聊天机会
+            </Text>
+          </View>
+        )}
+
         {/* 情绪短语卡片（水平滚动） */}
         <ScrollView
           scrollX

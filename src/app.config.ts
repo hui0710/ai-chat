@@ -5,6 +5,7 @@ export default defineAppConfig({
     navigationBarBackgroundColor: "#FEF9F5",
     navigationBarTitleText: "浅草心情",
     navigationBarTextStyle: "black",
+    enableShareTimeline: true,
   },
   cloud: true,
 });

@@ -433,34 +433,6 @@ const IndexPage = () => {
     }
   };
 
-  // 配置分享内容（微信小程序）
-  Taro.useShareAppMessage(() => {
-    const shareConfig = getShareConfig();
-
-    // 用户触发分享，添加奖励
-    if (!hasUserShared) {
-      addShareBonus();
-      markAsShared();
-      setHasUserShared(true);
-      setShowShareButton(false);
-
-      Taro.showToast({
-        title: `分享成功！获得 ${shareConfig.BONUS_COUNT} 次额外聊天机会`,
-        icon: "success",
-        duration: 2000,
-      });
-
-      // 刷新额度显示
-      setRemainingQuota(getRemainingQuota());
-    }
-
-    return {
-      title: shareConfig.TITLE,
-      path: "/pages/index/index?shared=true",
-      imageUrl: shareConfig.IMAGE_URL || "",
-    };
-  });
-
   // 配置分享给朋友
   Taro.useShareAppMessage(() => {
     const shareConfig = getShareConfig();
@@ -471,7 +443,7 @@ const IndexPage = () => {
       // 仅分享给朋友支持自定义图片
       imageUrl: shareConfig.IMAGE_URL || undefined,
       success: () => {
-        // 触发分享面板成功后给予奖励
+        // 分享给朋友：使用 success 回调发放奖励
         if (!hasUserShared) {
           addShareBonus();
           markAsShared();
@@ -484,7 +456,6 @@ const IndexPage = () => {
             duration: 2000,
           });
 
-          // 刷新额度显示
           setRemainingQuota(getRemainingQuota());
         }
       },
@@ -492,34 +463,31 @@ const IndexPage = () => {
   });
 
   // 配置分享到朋友圈
-  // 注意：朋友圈分享不支持 imageUrl 和 success 回调，强行添加会报错导致显示“未设置分享”
+  // 修复灰色按钮问题：微信不支持朋友圈分享的 imageUrl 字段，必须移除
+  // 修复奖励逻辑：朋友圈无 success 回调，改为在函数调用时发放奖励
   Taro.useShareTimeline(() => {
-    // 朋友圈分享没有成功回调，为了奖励逻辑的公平性：
-    // 1. 分享者：通过 URL 参数 shared=true，如果分享者自己点击链接（虽然少见），也会被判定为被分享者
-    // 2. 为了简化，我们在页面初始化逻辑里处理“被分享者”的奖励。
-    // 3. 对于分享者，朋友圈分享难以确切追踪成功，建议仅在“分享给朋友”时给予奖励，
-    //    或者在这里同样直接给予奖励（不依赖 success 回调）。
-    
     const shareConfig = getShareConfig();
+
+    // 朋友圈分享没有成功回调，在用户点击“分享到朋友圈”菜单时直接发放奖励
     if (!hasUserShared) {
       addShareBonus();
       markAsShared();
       setHasUserShared(true);
       setShowShareButton(false);
-      
+
       Taro.showToast({
         title: `分享成功！获得 ${shareConfig.BONUS_COUNT} 次额外聊天机会`,
         icon: "success",
         duration: 2000,
       });
-      
+
       setRemainingQuota(getRemainingQuota());
     }
 
     return {
       title: shareConfig.TITLE,
       query: "shared=true",
-      // 绝对不能包含 imageUrl: ""，否则微信会报错
+      // 绝对不能包含 imageUrl，否则会导致按钮灰色或报错
     };
   });
 

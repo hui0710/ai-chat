@@ -2,7 +2,7 @@ import { View, Text, ScrollView, Textarea } from "@tarojs/components";
 import { useState, useEffect } from "react";
 import Taro from "@tarojs/taro";
 import { Network } from "@/network";
-import { Send, Mic } from "lucide-react-taro";
+import { Send, Mic, Share2 } from "lucide-react-taro";
 import {
   WELCOME_MESSAGE,
   DAILY_QUOTES,
@@ -21,12 +21,16 @@ import {
   GOODBYE_TITLE,
   GOODBYE_SUBTITLE,
   AI_NAME,
+  SHARE_TIP_WORDS,
 } from "../../../config/ai.config";
 import {
   getRemainingQuota,
   hasQuota,
-  consumeQuota,
-  getExhaustedTip,
+  addShareBonus,
+  markAsShared,
+  hasShared,
+  getShareConfig,
+  consumeTotalQuota,
 } from "../../utils/quota";
 import { getComfortReply } from "../../utils/emotion-engine";
 import "./index.css";
@@ -55,14 +59,48 @@ const IndexPage = () => {
   const [thinkTip, setThinkTip] = useState("");
   const [scrollTop, setScrollTop] = useState(0);
   const [remainingQuota, setRemainingQuota] = useState(0);
+  const [showShareButton, setShowShareButton] = useState(false);
+  const [hasUserShared, setHasUserShared] = useState(false);
 
   // 初始化：加载缓存、显示每日文案、显示指引
   useEffect(() => {
+    // 开启分享菜单（包含朋友圈分享）
+    if (Taro.getEnv() === Taro.ENV_TYPE.WEAPP) {
+      Taro.showShareMenu({
+        withShareTicket: true,
+        menus: ["shareAppMessage", "shareTimeline"],
+      });
+    }
+
     // 加载缓存的对话
     loadCachedMessages();
 
     // 刷新额度显示
     setRemainingQuota(getRemainingQuota());
+
+    // 检查是否是通过分享链接进入的
+    const router = Taro.getCurrentPages();
+    const currentPage = router[router.length - 1];
+    const options = currentPage.options || {};
+
+    if (options.shared === "true") {
+      // 被分享的用户也获得 10 次机会
+      addShareBonus();
+      Taro.showToast({
+        title: "好友邀请你获得 10 次额外聊天机会！",
+        icon: "success",
+        duration: 2500,
+      });
+    }
+
+    // 检查用户是否已分享
+    const userHasShared = hasShared();
+    setHasUserShared(userHasShared);
+
+    // 未分享的用户显示分享按钮
+    if (!userHasShared) {
+      setShowShareButton(true);
+    }
 
     // 显示每日治愈文案
     const savedDate = Taro.getStorageSync("quoteDate");
@@ -294,17 +332,20 @@ const IndexPage = () => {
     // ── 策略2：额度管控 ──
     if (!hasQuota()) {
       setIsLoading(false);
+      // 随机选择一条分享引导话术
+      const shareTip =
+        SHARE_TIP_WORDS[Math.floor(Math.random() * SHARE_TIP_WORDS.length)];
       const exhaustedMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: getExhaustedTip(),
+        content: shareTip,
         timestamp: Date.now(),
         aiMood: "neutral",
         showTimestamp: shouldShowTimestamp(
           {
             id: "",
             role: "assistant",
-            content: getExhaustedTip(),
+            content: shareTip,
             timestamp: Date.now(),
           },
           userMessage,
@@ -318,7 +359,7 @@ const IndexPage = () => {
     }
 
     // 消耗一次额度
-    consumeQuota();
+    consumeTotalQuota();
     setRemainingQuota(getRemainingQuota());
 
     // ── 策略3：调用AI大模型 ──
@@ -376,6 +417,111 @@ const IndexPage = () => {
       duration: 2000,
     });
   };
+
+  // 分享按钮点击事件
+  const handleShareClick = () => {
+    if (Taro.getEnv() === Taro.ENV_TYPE.WEAPP) {
+      // 微信小程序端：通过 button open-type="share" 触发原生分享
+      // 这里不需要额外操作，分享回调在 useShareAppMessage 中处理
+    } else {
+      // H5 端：提示用户手动分享
+      Taro.showToast({
+        title: "请点击右上角分享",
+        icon: "none",
+        duration: 2000,
+      });
+    }
+  };
+
+  // 配置分享内容（微信小程序）
+  Taro.useShareAppMessage(() => {
+    const shareConfig = getShareConfig();
+
+    // 用户触发分享，添加奖励
+    if (!hasUserShared) {
+      addShareBonus();
+      markAsShared();
+      setHasUserShared(true);
+      setShowShareButton(false);
+
+      Taro.showToast({
+        title: `分享成功！获得 ${shareConfig.BONUS_COUNT} 次额外聊天机会`,
+        icon: "success",
+        duration: 2000,
+      });
+
+      // 刷新额度显示
+      setRemainingQuota(getRemainingQuota());
+    }
+
+    return {
+      title: shareConfig.TITLE,
+      path: "/pages/index/index?shared=true",
+      imageUrl: shareConfig.IMAGE_URL || "",
+    };
+  });
+
+  // 配置分享给朋友
+  Taro.useShareAppMessage(() => {
+    const shareConfig = getShareConfig();
+
+    return {
+      title: shareConfig.TITLE,
+      path: "/pages/index/index?shared=true",
+      // 仅分享给朋友支持自定义图片
+      imageUrl: shareConfig.IMAGE_URL || undefined,
+      success: () => {
+        // 触发分享面板成功后给予奖励
+        if (!hasUserShared) {
+          addShareBonus();
+          markAsShared();
+          setHasUserShared(true);
+          setShowShareButton(false);
+
+          Taro.showToast({
+            title: `分享成功！获得 ${shareConfig.BONUS_COUNT} 次额外聊天机会`,
+            icon: "success",
+            duration: 2000,
+          });
+
+          // 刷新额度显示
+          setRemainingQuota(getRemainingQuota());
+        }
+      },
+    };
+  });
+
+  // 配置分享到朋友圈
+  // 注意：朋友圈分享不支持 imageUrl 和 success 回调，强行添加会报错导致显示“未设置分享”
+  Taro.useShareTimeline(() => {
+    // 朋友圈分享没有成功回调，为了奖励逻辑的公平性：
+    // 1. 分享者：通过 URL 参数 shared=true，如果分享者自己点击链接（虽然少见），也会被判定为被分享者
+    // 2. 为了简化，我们在页面初始化逻辑里处理“被分享者”的奖励。
+    // 3. 对于分享者，朋友圈分享难以确切追踪成功，建议仅在“分享给朋友”时给予奖励，
+    //    或者在这里同样直接给予奖励（不依赖 success 回调）。
+    
+    const shareConfig = getShareConfig();
+    if (!hasUserShared) {
+      addShareBonus();
+      markAsShared();
+      setHasUserShared(true);
+      setShowShareButton(false);
+      
+      Taro.showToast({
+        title: `分享成功！获得 ${shareConfig.BONUS_COUNT} 次额外聊天机会`,
+        icon: "success",
+        duration: 2000,
+      });
+      
+      setRemainingQuota(getRemainingQuota());
+    }
+
+    return {
+      title: shareConfig.TITLE,
+      query: "shared=true",
+      // 绝对不能包含 imageUrl: ""，否则微信会报错
+    };
+  });
 
   return (
     <View
@@ -636,6 +782,67 @@ const IndexPage = () => {
             >
               今日剩余 {remainingQuota} 次聊天机会
             </Text>
+          </View>
+        )}
+
+        {/* 分享按钮（仅未分享用户显示） */}
+        {showShareButton && (
+          <View className="mb-2 flex justify-center">
+            {Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? (
+              <button
+                openType="share"
+                className="px-4 py-2 rounded-full"
+                style={{
+                  backgroundColor: "#E8F5E9",
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  border: "none",
+                  padding: "8px 16px",
+                  margin: 0,
+                }}
+              >
+                <Share2 size={16} color="#4CAF50" />
+                <Text
+                  className="block"
+                  style={{
+                    fontSize: "13px",
+                    color: "#4CAF50",
+                    fontWeight: "500",
+                  }}
+                >
+                  分享给好友，各得10次聊天机会
+                </Text>
+              </button>
+            ) : (
+              <View
+                className="px-4 py-2 rounded-full"
+                style={{
+                  backgroundColor: "#E8F5E9",
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  alignSelf: "center",
+                }}
+                onClick={handleShareClick}
+              >
+                <Share2 size={16} color="#4CAF50" />
+                <Text
+                  className="block"
+                  style={{
+                    fontSize: "13px",
+                    color: "#4CAF50",
+                    fontWeight: "500",
+                  }}
+                >
+                  分享给好友，各得10次聊天机会
+                </Text>
+              </View>
+            )}
           </View>
         )}
 

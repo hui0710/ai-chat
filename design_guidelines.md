@@ -37,7 +37,7 @@
 
 ### 字号层级
 
-- **页面标题**: `24px` / `font-medium` (500) - "树洞先生"
+- **页面标题**: `24px` / `font-medium` (500) - "浅草心情"
 - **H1（标题）**: `text-2xl` (24px) - 区块标题
 - **Body（正文）**: `text-base` (16px) - 消息内容
 - **Caption（辅助）**: `text-sm` (14px) - 时间戳、状态提示
@@ -76,7 +76,7 @@
 ```tsx
 <View className="fixed top-0 left-0 right-0 z-50 bg-[#FEF9F5] px-4 py-3 border-b border-[#E8E8E8]">
   <Text className="text-[24px] font-medium text-[#3E3A39] text-center">
-    树洞先生
+    浅草心情
   </Text>
 </View>
 ```

@@ -69,7 +69,7 @@ export const SYSTEM_PROMPT = `你是浅草心情专属暖心陪伴AI【小暖】
 export const SHARE_TIP_WORDS = [
   "今日谈心次数用完咯，把这份温柔分享给好友，你和对方都能额外获得10次聊天机会呀",
   "暂时没有对话次数啦，分享小程序给朋友，彼此都能解锁新一轮谈心时光",
-  "今日额度已用尽，随手分享分享，双方都可以再拥有10次倾诉机会哦"
+  "今日额度已用尽，随手分享分享，双方都可以再拥有10次倾诉机会哦",
 ];
 
 // ───────────────────────────────────────────
@@ -330,7 +330,7 @@ export const HUNYUAN_CONFIG = {
   region: "ap-guangzhou",
 };
 
-/** AI 提供商配置 */
+/** AI 提供商配置（保留向后兼容） */
 export const AI_PROVIDERS = {
   hunyuan: {
     name: "腾讯混元",
@@ -346,3 +346,89 @@ export const AI_PROVIDERS = {
 
 /** 默认 AI 提供商 */
 export const DEFAULT_PROVIDER = "hunyuan";
+
+// ───────────────────────────────────────────
+// 7. 多模型提供商配置（统一路由）
+// ───────────────────────────────────────────
+
+export type AIProviderType = "hunyuan" | "deepseek" | "openai";
+
+export interface AIProviderConfig {
+  name: string;
+  apiUrl: string;
+  model: string;
+  /** 是否使用腾讯 TC3 签名（仅混元需要） */
+  useTencentSign: boolean;
+  /** Bearer Token 认证的环境变量名 */
+  apiKeyEnv?: string;
+  /** 最大上下文历史条数 */
+  maxHistory: number;
+}
+
+export const AI_PROVIDER_MAP: Record<AIProviderType, AIProviderConfig> = {
+  hunyuan: {
+    name: "腾讯混元",
+    apiUrl: "https://hunyuan.tencentcloudapi.com",
+    model: "hunyuan-lite",
+    useTencentSign: true,
+    maxHistory: 6,
+  },
+  deepseek: {
+    name: "DeepSeek",
+    apiUrl: "https://api.deepseek.com/chat/completions",
+    model: "deepseek-chat",
+    useTencentSign: false,
+    apiKeyEnv: "DEEPSEEK_API_KEY",
+    maxHistory: 20,
+  },
+  openai: {
+    name: "OpenAI",
+    apiUrl: "https://api.openai.com/v1/chat/completions",
+    model: "gpt-3.5-turbo",
+    useTencentSign: false,
+    apiKeyEnv: "OPENAI_API_KEY",
+    maxHistory: 20,
+  },
+};
+
+export const DEFAULT_AI_PROVIDER: AIProviderType = "hunyuan";
+
+// ───────────────────────────────────────────
+// 8. 用户记忆系统 — 记忆提取 & 注入模板
+// ───────────────────────────────────────────
+
+/** 对话结束后，让 AI 提取用户记忆的专用 prompt */
+export const MEMORY_EXTRACTION_PROMPT = `你是记忆提取助手。从以下对话中提取用户关键信息，用于下次对话时记住用户。
+
+请以严格 JSON 格式返回（不要加 markdown 代码块标记），包含以下字段：
+{
+  "facts": ["用户提到的事实，如名字、职业、宠物、家人等"],
+  "emotions": ["用户表达的主要情绪关键词"],
+  "preferences": ["用户偏好的安慰方式、讨厌的说话风格等"],
+  "events": ["用户提到的重要事件"],
+  "mood_score": 5
+}
+
+规则：
+- mood_score 为 1-10 整数，1=非常低落，10=非常开心，必须给出
+- 只提取明确信息，不要推测
+- 没有新信息的字段返回空数组
+- 每个字段最多 3 条，保持简洁
+
+对话内容：
+{conversation}`;
+
+/** 将用户档案注入 System Prompt 的模板 */
+export const MEMORY_INJECTION_TEMPLATE = `
+
+【用户记忆档案 — 小暖请记住以下信息】
+- 认识天数：{days_since_first}天
+- 总对话次数：{total_chats}次
+- 用户事实：{facts}
+- 近期情绪：{recent_emotions}
+- 安慰偏好：{preferences}
+- 近期事件：{recent_events}
+- 上次聊天：{last_chat_time}
+- 上次心情：{last_mood}
+
+请自然地融入对话中，不要刻意提起，像真正记住朋友一样。`;

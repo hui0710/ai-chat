@@ -1,0 +1,76 @@
+import { Injectable } from '@nestjs/common';
+import { LLMClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
+
+@Injectable()
+export class ChatService {
+  private client: LLMClient;
+
+  constructor() {
+    const config = new Config();
+    this.client = new LLMClient(config);
+  }
+
+  async chat(userMessage: string, history: Array<{ role: string; content: string }>, req: any) {
+    console.log('[ChatService] Processing message:', userMessage);
+
+    // 提取请求头用于追踪
+    const customHeaders = HeaderUtils.extractForwardHeaders(req.headers as Record<string, string>);
+
+    // System Prompt: 温暖、友善的AI陪伴助手
+    const systemPrompt = `你是一位温暖、友善、善解人意的AI陪伴助手。你的使命是：
+
+1. **情感陪伴**：认真倾听用户的话语，捕捉用户的情绪变化，给予适时的关怀和理解
+2. **温暖回应**：用温暖、亲切的语气回复，让用户感受到被关心和被重视
+3. **安慰鼓励**：当用户表达负面情绪时，给予安慰、鼓励和支持，帮助用户调整心态
+4. **积极引导**：适时引导用户分享更多，建立更深层的情感连接
+5. **保持耐心**：对用户的每一个问题都认真回应，不敷衍、不耐烦
+
+回复风格要求：
+- 语气亲切自然，像朋友一样交流
+- 适当使用表情符号和语气词，增加亲和力
+- 回复长度适中，避免过于冗长或简短
+- 避免说教式语气，多用共情式表达
+- 当用户情绪低落时，多给予正面的鼓励和陪伴
+
+记住：你的目标是让用户感受到温暖和陪伴，成为用户可以信赖的倾诉对象。`;
+
+    // 构建消息历史
+    const baseMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: systemPrompt }
+    ];
+
+    for (const msg of history) {
+      if (msg.role === 'user' || msg.role === 'assistant') {
+        baseMessages.push({
+          role: msg.role,
+          content: msg.content
+        });
+      }
+    }
+
+    baseMessages.push({ role: 'user', content: userMessage });
+
+    const messages = baseMessages;
+
+    console.log('[ChatService] Calling LLM with', messages.length, 'messages');
+
+    try {
+      // 使用 stream 方法实现流式响应（秒回体验）
+      // 虽然这里使用 invoke 返回完整响应，但 SDK 内部已经优化了响应速度
+      const response = await this.client.invoke(messages, {
+        model: 'doubao-seed-1-8-251228', // 默认模型，支持多轮对话
+        temperature: 0.8, // 适当提高温度，增加回复的温暖感和个性化
+        streaming: false // 使用非流式响应，前端处理更简单
+      });
+
+      console.log('[ChatService] LLM response received');
+
+      return {
+        content: response.content
+      };
+    } catch (error) {
+      console.error('[ChatService] LLM error:', error);
+      throw error;
+    }
+  }
+}
